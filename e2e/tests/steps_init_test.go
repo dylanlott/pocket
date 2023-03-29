@@ -21,11 +21,13 @@ var (
 	validatorKeys map[string]string
 	// clientset is the kubernetes API we acquire from the user's $HOME/.kube/config
 	clientset *kubernetes.Clientset
-	// validator holds command results between runs and reports errors to the test suite.
+	// validator holds command results between runs and reports errors to the test suite
 	validator = &validatorPod{}
-	// validatorId maps to the suffix ID of the kube pod that we use as our control agent.
-	validatorId string = "001"
-	chainId            = "0001"
+	// validatorA maps to suffix ID 001 of the kube pod that we use as our control agent
+	validatorA string = "001"
+	// validatorB maps to suffix ID 002
+	validatorB string = "002"
+	chainId           = "0001"
 )
 
 func init() {
@@ -41,8 +43,8 @@ func init() {
 	validatorKeys = vkmap
 }
 
-// TestFeatures runs the e2e tests specifiedin any .features files in this directory.
-// * This test suite assumes that a LocalNet is running that can be accessed by `kubectl`.
+// TestFeatures runs the e2e tests specifiedin any .features files in this directory
+// * This test suite assumes that a LocalNet is running that can be accessed by `kubectl`
 func TestFeatures(t *testing.T) {
 	suite := godog.TestSuite{
 		ScenarioInitializer: InitializeScenario,
@@ -65,6 +67,7 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(`^the validator should have exited without error$`, theValidatorShouldHaveExitedWithoutError)
 	ctx.Step(`^the user stakes their validator with (\d+) POKT$`, theUserStakesTheirValidatorWithPOKT)
 	ctx.Step(`^the user should be able to unstake their wallet$`, theUserShouldBeAbleToUnstakeTheirWallet)
+	ctx.Step(`^the user sends (\d+) POKT to another address$`, theUserSendsPOKTToAnotherAddress)
 }
 
 func theUserHasAValidator() error {
@@ -109,10 +112,33 @@ func theUserShouldBeAbleToUnstakeTheirWallet() error {
 	return unstakeValidator()
 }
 
-// stakeValidator runs Validator stake command with the address, amount, chains..., and serviceURL provided.
+// sends amount of POKT from v1-validator-001 to v1-validator-002
+func theUserSendsPOKTToAnotherAddress(amount int) error {
+	privateKey := getPrivateKey(validatorKeys, validatorA)
+	valB := getPrivateKey(validatorKeys, validatorB)
+	args := []string{
+		"--non_interactive=true",
+		"--remote_cli_url=" + rpcURL,
+		"Account",
+		"Send",
+		privateKey.Address().String(),
+		valB.Address().String(),
+		fmt.Sprintf("%d", amount),
+	}
+	validator.RunCommand(args...)
+	res, err := validator.RunCommand(args...)
+	if err != nil {
+		validator.result = res
+		return err
+	}
+	validator.result = res
+	return nil
+}
+
+// stakeValidator runs Validator stake command with the address, amount, chains..., and serviceURL provided
 func stakeValidator(amount string) error {
-	privateKey := getPrivateKey(validatorKeys, validatorId)
-	validatorServiceUrl := fmt.Sprintf("v1-validator%s:%d", validatorId, defaults.DefaultP2PPort)
+	privateKey := getPrivateKey(validatorKeys, validatorA)
+	validatorServiceUrl := fmt.Sprintf("v1-validator%s:%d", validatorA, defaults.DefaultP2PPort)
 
 	args := []string{
 		// NB: ignore passing a --pwd flag because
@@ -137,9 +163,9 @@ func stakeValidator(amount string) error {
 	return nil
 }
 
-// unstakeValidator unstakes the Validator at the same address that stakeValidator uses.
+// unstakeValidator unstakes the Validator at the same address that stakeValidator uses
 func unstakeValidator() error {
-	privKey := getPrivateKey(validatorKeys, validatorId)
+	privKey := getPrivateKey(validatorKeys, validatorA)
 	args := []string{
 		"--non_interactive=true",
 		"--remote_cli_url=" + rpcURL,
@@ -154,14 +180,14 @@ func unstakeValidator() error {
 	return nil
 }
 
-// getPrivateKey generates a new keypair from the private hex key that we get from the clientset.
+// getPrivateKey generates a new keypair from the private hex key that we get from the clientset
 func getPrivateKey(keyMap map[string]string, validatorId string) cryptoPocket.PrivateKey {
 	privHexString := keyMap[validatorId]
 	keyPair, err := cryptoPocket.CreateNewKeyFromString(privHexString, "", "")
 	if err != nil {
 		log.Fatalf("failed to extract keypair %+v", err)
 	}
-	privateKey, err := keyPair.Unarmour("") // empty passphrase
+	privateKey, err := keyPair.Unarmour("")
 	if err != nil {
 		log.Fatalf("failed to extract keypair %+v", err)
 	}
