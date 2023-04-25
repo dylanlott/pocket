@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/pokt-network/pocket/persistence/types"
 	"github.com/pokt-network/pocket/runtime/configs"
 )
@@ -117,11 +118,9 @@ func initializeDatabase(conn *pgxpool.Conn) error {
 
 // TODO(#77): Delete all the `initializeAllTables` calls once proper migrations are implemented.
 func initializeAllTables(ctx context.Context, db *pgxpool.Conn) error {
-	if err := initializeKVTables(ctx, db); err != nil {
-		fmt.Printf("[ERROR] remove before commit - failed to init KV tables: %+v", err)
+	if err := initializeTransactionTables(ctx, db); err != nil {
 		return err
 	}
-
 	if err := initializeAccountTables(ctx, db); err != nil {
 		return err
 	}
@@ -140,14 +139,6 @@ func initializeAllTables(ctx context.Context, db *pgxpool.Conn) error {
 		}
 	}
 
-	return nil
-}
-
-func initializeKVTables(ctx context.Context, db *pgxpool.Conn) error {
-	// TODO abstract this out to config values like the other setup functions
-	if _, err := db.Exec(ctx, fmt.Sprintf(`%s %s %s %s`, CreateTable, IfNotExists, "transactions", "(key TEXT, value TEXT);")); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -194,6 +185,13 @@ func initializeGovTables(ctx context.Context, db *pgxpool.Conn) error {
 
 func initializeBlockTables(ctx context.Context, db *pgxpool.Conn) error {
 	if _, err := db.Exec(ctx, fmt.Sprintf(`%s %s %s %s`, CreateTable, IfNotExists, types.BlockTableName, types.BlockTableSchema)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func initializeTransactionTables(ctx context.Context, db *pgxpool.Conn) error {
+	if _, err := db.Exec(ctx, fmt.Sprintf(`%s %s %s %s`, CreateTable, IfNotExists, types.TransactionTableName, types.TransactionTableSchema)); err != nil {
 		return err
 	}
 	return nil

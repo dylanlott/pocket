@@ -1,4 +1,3 @@
-
 package main
 
 import (
@@ -19,19 +18,18 @@ var output = flag.String("output", "", "The output file name, or empty to use st
 func main() {
 	flag.Parse()
 
-	its := []struct{
+	its := []struct {
 		sym string
 		typ reflect.Type
 	}{
-		
-		{ "ConsensusModule", reflect.TypeOf((*pkg_.ConsensusModule)(nil)).Elem()},
-		
-		{ "ConsensusPacemaker", reflect.TypeOf((*pkg_.ConsensusPacemaker)(nil)).Elem()},
-		
-		{ "ConsensusStateSync", reflect.TypeOf((*pkg_.ConsensusStateSync)(nil)).Elem()},
-		
-		{ "ConsensusDebugModule", reflect.TypeOf((*pkg_.ConsensusDebugModule)(nil)).Elem()},
-		
+
+		{"ConsensusModule", reflect.TypeOf((*pkg_.ConsensusModule)(nil)).Elem()},
+
+		{"ConsensusPacemaker", reflect.TypeOf((*pkg_.ConsensusPacemaker)(nil)).Elem()},
+
+		{"ConsensusStateSync", reflect.TypeOf((*pkg_.ConsensusStateSync)(nil)).Elem()},
+
+		{"ConsensusDebugModule", reflect.TypeOf((*pkg_.ConsensusDebugModule)(nil)).Elem()},
 	}
 	pkg := &model.Package{
 		// NOTE: This behaves contrary to documented behaviour if the

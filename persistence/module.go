@@ -17,7 +17,6 @@ import (
 
 var (
 	_ modules.PersistenceModule = &persistenceModule{}
-	_ modules.PersistenceModule = &persistenceModule{}
 
 	_ modules.PersistenceRWContext = &PostgresContext{}
 )
@@ -148,8 +147,6 @@ func (m *persistenceModule) GetModuleName() string {
 }
 
 func (m *persistenceModule) NewRWContext(height int64) (modules.PersistenceRWContext, error) {
-	m.logger.Info().Msg("NEW RW CONTEXT")
-
 	if m.writeContext != nil && m.writeContext.isOpen() {
 		return nil, fmt.Errorf("cannot create a new write context if one already exists")
 	}
@@ -184,8 +181,6 @@ func (m *persistenceModule) NewRWContext(height int64) (modules.PersistenceRWCon
 		txIndexer:  m.txIndexer,
 		stateTrees: m.stateTrees,
 	}
-
-	m.logger.Info().Msgf("WRITE CONTEXT %+v", m.writeContext)
 
 	return m.writeContext, nil
 }
@@ -248,7 +243,6 @@ func initializeBlockStore(pool *pgxpool.Pool) (kvstore.KVStore, error) {
 	pgkv := &kvstore.PostgresKV{
 		Pool: pool,
 	}
-
 	return pgkv, nil
 }
 

@@ -24,9 +24,10 @@ func (p *PostgresKV) Get(key []byte) ([]byte, error) {
 	}
 	defer conn.Conn().Close(ctx)
 
-	row := conn.QueryRow(ctx, "SELECT FROM transactions WHERE key=$1", key)
+	row := conn.QueryRow(ctx, "SELECT FROM transaction WHERE key=$1", key)
 	var val []byte
 	if err := row.Scan(&val); err != nil {
+		fmt.Printf("### ERROR: %+v", err)
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrKVStoreNotExists
 		}
@@ -40,21 +41,25 @@ func (p *PostgresKV) Set(key []byte, value []byte) error {
 	ctx := context.TODO()
 	conn, err := p.Pool.Acquire(ctx)
 	if err != nil {
+		fmt.Printf("### ERROR: %+v", err)
 		return err
 	}
 	defer conn.Conn().Close(ctx)
 
 	tx, err := conn.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
+		fmt.Printf("### ERROR: %+v", err)
 		return err
 	}
 
-	res, err := tx.Exec(ctx, "INSERT INTO transactions values ($1, $2)", key, value)
+	res, err := tx.Exec(ctx, "INSERT INTO transaction VALUES ($1, $2)", key, value)
 	if err != nil {
+		fmt.Printf("### ERROR: %+v", err)
 		return err
 	}
 
 	if err := tx.Commit(ctx); err != nil {
+		fmt.Printf("### ERROR: %+v", err)
 		return err
 	}
 
@@ -78,7 +83,7 @@ func (p *PostgresKV) Delete(key []byte) error {
 		return err
 	}
 
-	res, err := tx.Exec(ctx, "DELETE FROM transactions ($1);", key)
+	res, err := tx.Exec(ctx, "DELETE FROM transaction ($1);", key)
 	if err != nil {
 		return err
 	}
@@ -106,32 +111,36 @@ func (p *PostgresKV) GetAll(prefixKey []byte, descending bool) (keys [][]byte, v
 	ctx := context.TODO()
 	conn, err := p.Pool.Acquire(ctx)
 	if err != nil {
+		fmt.Printf("### ERROR: %+v", err)
 		return nil, nil, err
 	}
 	defer conn.Conn().Close(ctx)
 
 	tx, err := conn.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
+		fmt.Printf("### ERROR: %+v", err)
 		return nil, nil, err
 	}
 	defer tx.Rollback(ctx)
 
 	// TODO IN THIS COMMIT Modify query to ORDER BY to support descending bool in funciton args
 	prefixQuery := `WITH prefix_match(prefix) AS (
-		VALUES ('your_prefix_here')
+		VALUES ($1)
 	  )
 	  SELECT *
-	  FROM your_table
+	  FROM transaction 
 	  WHERE key LIKE (SELECT prefix || '%' FROM prefix_match);
 	`
 	rows, err := tx.Query(ctx, prefixQuery, prefixKey)
 	if err != nil {
+		fmt.Printf("### ERROR: %+v", err)
 		return nil, nil, err
 	}
 
 	for rows.Next() {
 		var k, v []byte
 		if err := rows.Scan(&k, &v); err != nil {
+			fmt.Printf("### ERROR: %+v", err)
 			return nil, nil, err
 		}
 		keys = append(keys, k)

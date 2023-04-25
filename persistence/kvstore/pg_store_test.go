@@ -1,15 +1,22 @@
 package kvstore_test
 
 import (
+	"context"
+	"fmt"
 	"math/rand"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/matryer/is"
+
 	"github.com/pokt-network/pocket/persistence/kvstore"
+	"github.com/pokt-network/pocket/runtime"
+	"github.com/pokt-network/pocket/runtime/configs"
 )
 
+var connTimeout = 5 * time.Second
 var count = 100
 
 func TestPostgresKV_Get(t *testing.T) {
@@ -49,6 +56,12 @@ func TestPostgresKV_Get(t *testing.T) {
 }
 
 func TestPostgresKV_Set(t *testing.T) {
+	is := is.New(t)
+	rm := testEnv(t)
+	pcfg := rm.GetConfig().Persistence
+	pool, err := connectToPool(pcfg)
+	is.NoErr(err)
+
 	type fields struct {
 		Pool *pgxpool.Pool
 	}
@@ -63,17 +76,18 @@ func TestPostgresKV_Set(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "",
+			name: "shoudl insert a transaction",
 			fields: fields{
-				Pool: p,
+				Pool: pool,
 			},
 			args: args{
-				key:   []byte{},
-				value: []byte{},
+				key:   []byte("foo"),
+				value: []byte("bar"),
 			},
 			wantErr: false,
 		},
 	}
+	// TODO IN THIS COMMIT clean up transaction table before and after each test run
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &kvstore.PostgresKV{
@@ -247,7 +261,51 @@ func generateRandomBytes(length int) []byte {
 	return bytes
 }
 
-func connectToPool() *pgxpool.Pool {
-	panic("not impl")
-	return nil
+func connectToPool(cfg *configs.PersistenceConfig) (*pgxpool.Pool, error) {
+	config, err := pgxpool.ParseConfig(cfg.GetPostgresUrl())
+	if err != nil {
+		return nil, fmt.Errorf("unable to create database config: %v", err)
+	}
+
+	config.MaxConns = cfg.GetMaxConnsCount()
+	config.MinConns = cfg.GetMinConnsCount()
+
+	maxConnLifetime, err := time.ParseDuration(cfg.GetMaxConnLifetime())
+	if err != nil {
+		return nil, fmt.Errorf("unable to set max connection lifetime: %v", err)
+	}
+	config.MaxConnLifetime = maxConnLifetime
+
+	maxConnIdleTime, err := time.ParseDuration(cfg.GetMaxConnIdleTime())
+	if err != nil {
+		return nil, fmt.Errorf("unable to set max connection idle time : %v", err)
+	}
+	config.MaxConnIdleTime = maxConnIdleTime
+
+	healthCheckPeriod, err := time.ParseDuration(cfg.GetHealthCheckPeriod())
+	if err != nil {
+		return nil, fmt.Errorf("unable to set healthcheck period: %v", err)
+	}
+	config.HealthCheckPeriod = healthCheckPeriod
+
+	// Update the base connection configurations
+	config.ConnConfig.ConnectTimeout = connTimeout
+
+	pool, err := pgxpool.NewWithConfig(context.Background(), config)
+	if err != nil {
+		return nil, fmt.Errorf("unable to connect to database: %v", err)
+	}
+
+	return pool, nil
+}
+
+func testEnv(t *testing.T) *runtime.Manager {
+	configPath := runtime.GetEnv("CONFIG_PATH", "../../build/config/config1.json")
+	genesisPath := runtime.GetEnv("GENESIS_PATH", "../../build/config/genesis.json")
+	runtimeMgr := runtime.NewManagerFromFiles(
+		configPath, genesisPath,
+		runtime.WithClientDebugMode(),
+		runtime.WithRandomPK(),
+	)
+	return runtimeMgr
 }

@@ -28,6 +28,7 @@ require (
 	github.com/libp2p/go-libp2p v0.25.1
 	github.com/looplab/fsm v1.0.1
 	github.com/manifoldco/promptui v0.9.0
+	github.com/matryer/is v1.4.1
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/multiformats/go-multiaddr v0.8.0
 	github.com/pokt-network/smt v0.4.0
