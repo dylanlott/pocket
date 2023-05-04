@@ -2,6 +2,7 @@ package unit_of_work
 
 import (
 	"encoding/hex"
+	"fmt"
 	"math/big"
 
 	"github.com/pokt-network/pocket/shared/codec"
@@ -11,6 +12,7 @@ import (
 	typesUtil "github.com/pokt-network/pocket/utility/types"
 )
 
+// TODO IN THIS COMMIT handleMessage must have atomic access to the database
 func (u *baseUtilityUnitOfWork) handleMessage(msg typesUtil.Message) (err coreTypes.Error) {
 	switch x := msg.(type) {
 	case *typesUtil.MessageSend:
@@ -28,6 +30,11 @@ func (u *baseUtilityUnitOfWork) handleMessage(msg typesUtil.Message) (err coreTy
 	default:
 		return coreTypes.ErrUnknownMessage(x)
 	}
+}
+
+// TODO make this handle rollbacks gracefully here
+func (u *baseUtilityUnitOfWork) handleRollback() coreTypes.Error {
+	return fmt.Errorf("not impl")
 }
 
 func (u *baseUtilityUnitOfWork) handleMessageSend(message *typesUtil.MessageSend) coreTypes.Error {

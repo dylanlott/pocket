@@ -183,7 +183,43 @@ func TestGetByRecipient(t *testing.T) {
 	require.Equal(t, 0, len(idxTxsFromSenderBad))
 }
 
-func requireIdxTxsEqual(t *testing.T, txR1, txR2 *coreTypes.IndexedTransaction) {
+// DISCUSS: should KVStore control its own savepoints and rollbacks?
+// * or should they be controlled by the caller?
+// * on one hand, KVStore should not leave garbage around.
+// * on the other, maybe this is a fundamentally bad way to position
+// a key value store in this system?
+func TestSavepointsAndRollbacks(t *testing.T) {
+	txIndexer, err := NewMemTxIndexer()
+	defer closeIndexer(t, txIndexer)
+
+	// setup tx
+	tx1 := NewTestingTransactionResult(t, 1, 0)
+	require.NoError(t, err)
+
+	// index transaction
+	err = txIndexer.Index(tx1)
+	require.NoError(t, err)
+
+	// take a savepoint
+	s, err := txIndexer.Savepoint()
+	require.NoErr(t, err)
+	t.Logf("savepoint %+v", s)
+
+	// create a second transaction
+	tx2 := NewTestingTransactionResult(t, 1, 0)
+
+	// TODO: mock the Index function to return an error
+	if err := txIndexer.Index(tx2); err != nil {
+		// cause a rollback
+		if err := txIndexer.Rollback(s); err != nil {
+			t.Logf("failed to rollback: %+v", err)
+			t.Fail()
+		}
+		// TODO: assert that only the first transaction is in the KVStore.
+	}
+}
+
+func requireTxResultsEqual(t *testing.T, txR1, txR2 *coreTypes.TxResult) {
 	bz, err := txR1.Bytes()
 	require.NoError(t, err)
 	bz2, err := txR2.Bytes()

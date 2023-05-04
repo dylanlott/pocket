@@ -112,7 +112,21 @@ func (indexer *txIndexer) Close() error {
 	return indexer.db.Stop()
 }
 
+//
+// Savepoints and rollbacks
+//
+
+func (indexer *txIndexer) Rollback([]byte) error {
+	return fmt.Errorf("not impl")
+}
+
+func (indexer *txIndexer) Savepoint() ([]byte, error) {
+	return nil, fmt.Errorf("not impl")
+}
+
+//
 // kv helper functions
+//
 
 func (indexer *txIndexer) getAll(prefix []byte, descending bool) (result []*coreTypes.IndexedTransaction, err error) {
 	_, hashKeys, err := indexer.db.GetAll(prefix, descending)
