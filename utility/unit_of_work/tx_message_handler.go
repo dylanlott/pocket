@@ -32,11 +32,6 @@ func (u *baseUtilityUnitOfWork) handleMessage(msg typesUtil.Message) (err coreTy
 	}
 }
 
-// TODO make this handle rollbacks gracefully here
-func (u *baseUtilityUnitOfWork) handleRollback() coreTypes.Error {
-	return fmt.Errorf("not impl")
-}
-
 func (u *baseUtilityUnitOfWork) handleMessageSend(message *typesUtil.MessageSend) coreTypes.Error {
 	// convert the amount to big.Int
 	amount, er := utils.StringToBigInt(message.Amount)
