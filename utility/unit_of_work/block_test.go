@@ -13,6 +13,68 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestUtilityUnitOfWork_ApplyBlock_Atomic(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockUtilityMod := mockModules.NewMockUtilityModule(ctrl)
+	mockUtilityMod.EXPECT().GetModuleName().Return(modules.UtilityModuleName).AnyTimes()
+	mockUtilityMod.EXPECT().SetBus(gomock.Any()).Return().AnyTimes()
+
+	uow := newTestingUtilityUnitOfWork(t, 0, func(uow *baseUtilityUnitOfWork) {
+		uow.GetBus().RegisterModule(mockUtilityMod)
+		mockUtilityMod.EXPECT().GetMempool().Return(NewTestingMempool(t)).AnyTimes()
+	})
+	tx, _, _, _ := newTestingTransaction(t, uow)
+
+	txBz, er := tx.Bytes()
+	require.NoError(t, er)
+
+	proposer := getFirstActor(t, uow, coreTypes.ActorType_ACTOR_TYPE_VAL)
+
+	addrBz, err := hex.DecodeString(proposer.GetAddress())
+	require.NoError(t, err)
+
+	_, err = uow.getAccountAmount(addrBz)
+	require.NoError(t, err)
+
+	err = uow.SetProposalBlock(IgnoreProposalBlockCheckHash, addrBz, [][]byte{txBz})
+	require.NoError(t, err)
+
+	err = uow.ApplyBlock()
+	stateHash1 := uow.GetStateHash()
+	require.NoError(t, err)
+	require.NotNil(t, stateHash1)
+
+	// set a savepoint after successful initial block
+	// TODO: make this create a savepoint
+	err = uow.newSavePoint(nil)
+	require.NoError(t, err)
+
+	// create a new transaction
+	// TODO: Make this fail invalidation or mock it to be invalid
+	tx2, _, _, _ := newTestingTransaction(t, uow)
+	txBz2, er := tx2.Bytes()
+	require.NoError(t, er)
+
+	// Set it in to the proposal block
+	err = uow.SetProposalBlock(IgnoreProposalBlockCheckHash, addrBz, [][]byte{txBz2})
+	require.NoError(t, err)
+
+	// TODO: trigger or mock apply block it to return an error
+	// 		 after transaction is indexed but block application
+	// 		 failed to capture orphaned key behavior
+	err = uow.ApplyBlock()
+	require.Error(t, err)
+
+	// Rollback to a savepoint
+	err = uow.persistenceRWContext.RollbackToSavePoint([]byte("TODO"))
+	require.NoError(t, err)
+
+	// compare state hashes
+	stateHash2, err := uow.persistenceRWContext.ComputeStateHash()
+	require.NoError(t, err)
+	require.Equal(t, stateHash1, stateHash2)
+}
+
 func TestUtilityUnitOfWork_ApplyBlock(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockUtilityMod := mockModules.NewMockUtilityModule(ctrl)
