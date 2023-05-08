@@ -193,7 +193,7 @@ func TestSavepointsAndRollbacks(t *testing.T) {
 	defer closeIndexer(t, txIndexer)
 
 	// setup tx
-	tx1 := NewTestingTransactionResult(t, 1, 0)
+	tx1 := NewTestingIndexedTransaction(t, 1, 0)
 	require.NoError(t, err)
 
 	// index transaction
@@ -202,11 +202,11 @@ func TestSavepointsAndRollbacks(t *testing.T) {
 
 	// take a savepoint
 	s, err := txIndexer.Savepoint()
-	require.NoErr(t, err)
+	require.NoError(t, err)
 	t.Logf("savepoint %+v", s)
 
 	// create a second transaction
-	tx2 := NewTestingTransactionResult(t, 1, 0)
+	tx2 := NewTestingIndexedTransaction(t, 1, 0)
 
 	// TODO: mock the Index function to return an error
 	if err := txIndexer.Index(tx2); err != nil {
@@ -219,7 +219,7 @@ func TestSavepointsAndRollbacks(t *testing.T) {
 	}
 }
 
-func requireTxResultsEqual(t *testing.T, txR1, txR2 *coreTypes.TxResult) {
+func requireIdxTxsEqual(t *testing.T, txR1, txR2 *coreTypes.IndexedTransaction) {
 	bz, err := txR1.Bytes()
 	require.NoError(t, err)
 	bz2, err := txR2.Bytes()

@@ -2,7 +2,6 @@ package unit_of_work
 
 import (
 	"encoding/hex"
-	"fmt"
 	"math/big"
 
 	"github.com/pokt-network/pocket/shared/codec"
